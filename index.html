@@ -1,0 +1,481 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<title>POWER SHUTDOWN MANAGEMENT APP - AREA-IV</title>
+
+<style>
+body{
+  font-family:"Segoe UI",Roboto,Arial;
+  background:#f1f3f6;
+  margin:0;
+}
+header{
+  background:#1f3a5f;
+  color:#fff;
+  padding:14px 18px;
+  font-size:18px;
+  font-weight:600;
+  text-align:center;
+}
+.container{
+  padding:16px;
+  max-width:480px;
+  margin:auto;
+}
+.card{margin-bottom:20px}
+h2,h3{
+  margin:12px 0;
+  color:#1f3a5f;
+  text-align:center;
+}
+input,select,textarea{
+  width:100%;
+  padding:12px;
+  margin-top:6px;
+  border-radius:10px;
+  border:1px solid #dcdfe4;
+  font-size:15px;
+}
+button{
+  width:100%;
+  padding:14px;
+  margin-top:14px;
+  font-size:16px;
+  font-weight:600;
+  border:none;
+  border-radius:14px;
+  cursor:pointer;
+}
+.btn-login{background:#1f3a5f;color:#fff}
+.btn-shutdown{background:#e74c3c;color:#fff}
+.btn-resume{background:#27ae60;color:#fff}
+.btn-back{background:#7f8c8d;color:#fff}
+.hidden{display:none}
+.shutdown-item{
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  margin-bottom:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+.shutdown-row{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:8px;
+  font-size:14px;
+}
+.shutdown-label{color:#6b7280;font-weight:600}
+.shutdown-value{font-weight:700}
+.install-badge{
+  padding:4px 12px;
+  border-radius:999px;
+  background:#e5f0ff;
+  color:#1f3a5f;
+  font-size:12px;
+  font-weight:700;
+}
+#msg{text-align:center;margin-top:10px;font-weight:600}
+</style>
+</head>
+
+<body>
+<header>POWER SHUTDOWN MANAGEMENT APP - AREA-IV</header>
+
+<div id="userInfo" class="hidden" style="background:#fff;margin:10px;padding:10px;border-radius:12px;text-align:center">
+  <div id="ui_name" style="font-weight:700"></div>
+  <div id="ui_inst"></div>
+</div>
+
+<div class="container">
+
+<div class="card" id="loginBox">
+<h3>USER LOGIN</h3>
+<input id="loginUser" placeholder="Username">
+<input type="password" id="loginPass" placeholder="Password">
+<button class="btn-login" onclick="login()">Login</button>
+</div>
+
+<div class="card hidden" id="mainBox">
+<h2>ACTIVE SHUTDOWN FEEDERS</h2>
+<div id="activeShutdowns"></div>
+<button class="btn-shutdown" onclick="openShutdown()">Shutdown</button>
+<button class="btn-resume" onclick="openResume()">Resume</button>
+
+<!-- ✅ ADMIN ONLY BUTTON -->
+<button id="planBtn" class="btn-shutdown hidden" onclick="openPlanShutdown()">
+📅 Plan Shutdown Entry
+</button>
+</div>
+
+<div id="msg"></div>
+</div>
+
+<script>
+const WEBAPP_URL="https://script.google.com/macros/s/AKfycbxKK9DxkAqETix0lJ2129HwWSNwYFt9_SNAlxOEfhkalOjRJahP1mvJSWyi3QKpomjoCA/exec";
+const CSV_URL="https://docs.google.com/spreadsheets/d/1NLMcoIjlo5elmrALUXPfvGOEqToS8tFPfGThRZ8maiU/export?format=csv";
+const USERS=[
+ {u:"121318",p:"admin123",n:"SYSTEM ADMIN",i:"ALL",admin:true},
+ {u:"95606",p:"*ongc123",n:"SUDHIR SINGH",i:"ALL",admin:true},
+ {u:"95843",p:"*ongc123",n:"DIPAK MEDAK",i:"ALL",admin:true},
+ {u:"82653",p:"*ongc123",n:"SHANTILAL RATHWA",i:"ALL",admin:true},
+ {u:"82051",p:"*ongc123",n:"HEMENDRA KUMAR",i:"ALL",admin:true},
+ {u:"124569",p:"1234",n:"KULDIP KHAROLIA",i:"LIMBODARA-GGS-1"},
+ {u:"133668",p:"1234",n:"DIPAK MAURYA",i:"LIMBODARA-GGS-1"},
+ {u:"124470",p:"1234",n:"SANDESH BHARDWAJ",i:"LIMBODARA-GGS-2"},
+ {u:"135597",p:"1234",n:"KUNAL RANJAN",i:"LIMBODARA-GGS-2"},
+ {u:"139938",p:"1234",n:"HAREKRISHNA",i:"LIMBODARA-GGS-2"},
+ {u:"125223",p:"1234",n:"SUKUMAR LAHA",i:"GAMIJ-GGS-1"},
+ {u:"139646",p:"1234",n:"RAVI KUMAR SHARMA",i:"GAMIJ-GGS-1"},
+ {u:"137317",p:"1234",n:"SONUKUMAR SINGH",i:"GAMIJ-GGS-1"},
+ {u:"121028",p:"1234",n:"ABHISHEK PATEL",i:"GAMIJ-GGS-2"},
+ {u:"133181",p:"1234",n:"KETUL PATEL",i:"GAMIJ-GGS-2"},
+ {u:"123310",p:"1234",n:"DHEERENDRA SINGH",i:"GAMIJ-GGS-3"},
+ {u:"133643",p:"1234",n:"ASHUTOSH KUMAR SINGH",i:"GAMIJ-GGS-3"},
+ {u:"135515",p:"1234",n:"ADITYA ARYA",i:"GAMIJ-GGS-3"},
+ {u:"130594",p:"1234",n:"MAHESH GAJJAR",i:"MOTERA-GGS"}
+];
+
+const FEEDERS={
+ "LIMBODARA-GGS-1":["AKASH CERAMIC FEEDER","ITLA ONGC FEEDER-LG1","MANSA CITY FEEDER","MANSA CIVIL FEEDER"],
+"LIMBODARA-GGS-2":["ITLA ONGC FEEDER-LG2","KIRTIDHAM FEEDER","LISA FEEDER","MAHAKALI FEEDER","MUBARAKPUR FEEDER","NETRA FEEDER","ROYAL FEEDER","TIRUPATI FEEDER","VARDAYINI FEEDER"],
+"GAMIJ-GGS-1":["BAHIYAL ONGC FEEDER","RAM FEEDER-GAMIJ-1","SOMNATH JGY FEEDER","NAYRA JGY FEEDER","VASNA RATHOD FEEDER"],
+"GAMIJ-GGS-2":["BADARPUR FEEDER","CHAULAJ FEEDER-GAMIJ-2","GADWEL FEEDER","KASHTABHANJAN FEEDER","RAM FEEDR-GAMIJ-2"],
+"GAMIJ-GGS-3":["BADARPUR FEEDER","CHAULAJ FFEDER-GAMIJ-2","GADWEL FEEDER","KASHTABHANJAN FEEDER","RAM FEEDR-GAMIJ-2","BARMUVADA FEEDER","CHAULAJ FEEDER-GAMIJ-3","FINAV FEEEDER","FUDAL MATA FEEDER","GAYATRI FEEDER","GINJAR FEEDER","HALDARWAS FEEDER-GAMIJ-3","HALDARWAS FEEDER-GAMIJ-4","KALPSAR FEEDER","SATRUNDA FEEDER-GAMIJ-3","SATRUNDA FEEDER-GAMIJ-4","SIHUNJ FEEDER","VANSOLI FEEDER"],
+"MOTERA-GGS":["PREKSHA BHARTI INFOCITY FEEDER","TP-44 FEEDER","ZUNDAL AG FEEDER"],
+"ALL":["AKASH CERAMIC FEEDER","ITLA ONGC FEEDER-LG1","MANSA CITY FEEDER","MANSA CIVIL FEEDER",
+ "ITLA ONGC FEEDER-LG2","KIRTIDHAM FEEDER","LISA FEEDER","MAHAKALI FEEDER",
+ "MUBARAKPUR FEEDER","NETRA FEEDER","ROYAL FEEDER","TIRUPATI FEEDER","VARDAYINI FEEDER",
+ "BAHIYAL ONGC FEEDER","RAM FEEDER-GAMIJ-1","SOMNATH JGY FEEDER","NAYRA JGY FEEDER",
+ "VASNA RATHOD FEEDER","BADARPUR FEEDER","CHAULAJ FFEDER-GAMIJ-2","GADWEL FEEDER",
+ "KASHTABHANJAN FEEDER","RAM FEEDR-GAMIJ-2","BARMUVADA FEEDER",
+ "CHAULAJ FEEDER-GAMIJ-3","FINAV FEEEDER","FUDAL MATA FEEDER","GAYATRI FEEDER",
+ "GINJAR FEEDER","HALDARWAS FEEDER-GAMIJ-3","HALDARWAS FEEDER-GAMIJ-4",
+ "KALPSAR FEEDER","SATRUNDA FEEDER-GAMIJ-3","SATRUNDA FEEDER-GAMIJ-4",
+ "SIHUNJ FEEDER","VANSOLI FEEDER",
+ "PREKSHA BHARTI INFOCITY FEEDER","TP-44 FEEDER","ZUNDAL AG FEEDER"
+]
+};
+
+let CURRENT_USER={}, LAST_SHUTDOWN_TIME={};
+let LAST_RESUME_DATA = null;
+
+// 🚫 Special Character Validator
+function hasSpecialChar(text){
+  // allowed: A–Z, a–z, 0–9, space, - and /
+  const regex = /^[a-zA-Z0-9 \-/]+$/;
+  return !regex.test(text);
+}
+function login(){
+ const u=USERS.find(x=>x.u===loginUser.value && x.p===loginPass.value);
+ if(!u){showMsg("Invalid Login");return;}
+ CURRENT_USER=u;
+ui_name.innerText = "👤 " + CURRENT_USER.n;
+ui_inst.innerText = "Installation : " + CURRENT_USER.i;
+userInfo.classList.remove("hidden");
+ loginBox.classList.add("hidden");
+ mainBox.classList.remove("hidden");
+ shutdownBox.classList.add("hidden");
+ resumeBox.classList.add("hidden");
+ mainBox.classList.remove("hidden");
+if(u.admin){
+ document.getElementById("planBtn").classList.remove("hidden");
+}
+populateFeeders();
+loadActiveShutdowns();
+} // ← REQUIRED closing brace for login()
+
+function populateFeeders(){
+ sd_feeder.innerHTML=rs_feeder.innerHTML="";
+ (FEEDERS[CURRENT_USER.i]||FEEDERS.ALL).forEach(f=>{
+  sd_feeder.innerHTML+=`<option>${f}</option>`;
+  rs_feeder.innerHTML+=`<option>${f}</option>`;
+ });
+}
+
+function loadActiveShutdowns(){
+  LAST_SHUTDOWN_TIME = {};
+  fetch(CSV_URL + "&t=" + Date.now())
+    .then(r => r.text())
+    .then(t => {
+      const rows = t.split("\n").map(r => r.split(",").map(x => x.replace(/"/g,"").trim()));
+      const h = rows.shift().map(x => x.toUpperCase());
+
+      const i = {
+        feeder: h.findIndex(x => x.includes("FEEDER")),
+        sd:     h.findIndex(x => x.includes("SHUTDOWN")),
+        rs:     h.findIndex(x => x.includes("RESUME")),
+        inst:   h.findIndex(x => x.includes("INSTALL")),
+        type:   h.findIndex(x => x.includes("TYPE"))
+      };
+
+      activeShutdowns.innerHTML = "";
+      let count = 0;
+
+      rows.forEach(r => {
+        const feeder = r[i.feeder];
+        const sdTime = r[i.sd];
+        const rsTime = r[i.rs];
+        const inst   = r[i.inst];
+        const type   = r[i.type];
+
+        if (!rsTime || rsTime === "NA") {
+          if (!CURRENT_USER.admin && inst !== CURRENT_USER.i) return;
+
+          LAST_SHUTDOWN_TIME[feeder] = sdTime;
+          count++;
+
+          activeShutdowns.innerHTML += `
+<div class="shutdown-item">
+  <div class="shutdown-row">
+    <span class="shutdown-label">FEEDER</span>
+    <span class="shutdown-value">${feeder}</span>
+  </div>
+  <div class="shutdown-row">
+    <span class="shutdown-label">TYPE</span>
+    <span class="shutdown-value">${type}</span>
+  </div>
+  <div class="shutdown-row">
+    <span class="shutdown-label">TIME</span>
+    <span class="shutdown-value">${sdTime}</span>
+  </div>
+  <div class="shutdown-row">
+    <span class="shutdown-label">INSTALLATION</span>
+    <span class="install-badge">${inst}</span>
+  </div>
+
+  <!-- ✅ WHATSAPP SHARE BUTTON -->
+  <button style="
+    margin-top:10px;
+    width:100%;
+    background:#25D366;
+    color:#fff;
+    border:none;
+    padding:10px;
+    border-radius:10px;
+    font-weight:700;
+    cursor:pointer;"
+    onclick="shareWhatsApp('${feeder}','${type}','${sdTime}','${inst}')">
+    📲 Share on WhatsApp
+  </button>
+</div>`;
+        }
+      });
+
+      if (!count) {
+        activeShutdowns.innerHTML =
+          `<div class="shutdown-item" style="text-align:center;color:#27ae60;font-weight:700">
+            ✅ All FEEDERS ARE HEALTHY
+           </div>`;
+      }
+    });
+}
+
+function submitResume(){
+ if(!rs_feeder.value||!rs_time.value||!rs_loss.value||!rs_dg.value||!rs_rem.value){
+ showMsg("All Resume fields required");
+ return;
+}
+
+// 🚫 Special character validation
+if(hasSpecialChar(rs_rem.value)){
+ showMsg("❌ Do not use special characters");
+ return;
+}
+
+
+ if(!LAST_SHUTDOWN_TIME[rs_feeder.value]){
+  showMsg("Feeder not found in shutdown");
+  return;
+ }
+
+ const sd = new Date(LAST_SHUTDOWN_TIME[rs_feeder.value]);
+ const rt = new Date(rs_time.value);
+
+ if(rt <= sd){
+  showMsg("Resume time must be greater than Shutdown time");
+  return;
+ }
+
+ fetch(WEBAPP_URL+"?"+new URLSearchParams({
+  action:"resume",
+  feeder: rs_feeder.value,
+  ResumeTime: rs_time.value.replace("T"," "),
+  ResumeEntryBy: CURRENT_USER.n,
+  TotalProdLoss: rs_loss.value,
+  DGDeployed: rs_dg.value,
+  Remarks: rs_rem.value
+ }), { mode:"no-cors" });
+
+ // ✅ STORE LAST RESUME DATA
+ LAST_RESUME_DATA = {
+  feeder: rs_feeder.value,
+  resumeTime: rs_time.value.replace("T"," "),
+  loss: rs_loss.value,
+  dg: rs_dg.value,
+  reason: rs_rem.value,
+  user: CURRENT_USER.n,
+  inst: CURRENT_USER.i
+ };
+
+ // ✅ SHOW WHATSAPP BUTTON
+ document.getElementById("resumeShareBtn").classList.remove("hidden");
+
+ showMsg("Resume Submitted");
+}
+function hasSpecialChar(text){
+  // allowed: letters, numbers, space, - and /
+  const regex = /^[a-zA-Z0-9 \-/]+$/;
+  return !regex.test(text);
+}
+function submitShutdown(){
+ if(!sd_feeder.value||!sd_time.value||!sd_type.value||!sd_info.value){
+ showMsg("All Shutdown fields required");
+ return;
+}
+
+// 🚫 Special character validation
+if(hasSpecialChar(sd_info.value)){
+ showMsg("❌ Do not use special characters");
+ return;
+}
+
+
+ // 🚫 Prevent duplicate shutdown
+ if(LAST_SHUTDOWN_TIME[sd_feeder.value]){
+  showMsg("Feeder already in shutdown");
+  return;
+ }
+
+ fetch(WEBAPP_URL+"?"+new URLSearchParams({
+  action:"shutdown",
+  feeder:sd_feeder.value,
+  ShutdownTime:sd_time.value.replace("T"," "),
+  ShutdownType:sd_type.value,
+  Information: sd_info.value.toUpperCase(),
+  ShutdownEntryBy: CURRENT_USER.n,
+  Installation: CURRENT_USER.i
+ }),{mode:"no-cors"});
+
+ showMsg("Shutdown Submitted");
+ backToMain();
+}
+
+function openShutdown(){mainBox.classList.add("hidden");shutdownBox.classList.remove("hidden")}
+function openResume(){
+ mainBox.classList.add("hidden");
+ resumeBox.classList.remove("hidden");
+
+ // hide initially, will show only after submit
+ document.getElementById("resumeShareBtn").classList.add("hidden");
+}
+function backToMain(){
+ shutdownBox.classList.add("hidden");
+ resumeBox.classList.add("hidden");
+ mainBox.classList.remove("hidden");
+ loadActiveShutdowns();
+}
+function showMsg(t){msg.innerText=t;setTimeout(()=>msg.innerText="",3000)}
+setInterval(loadActiveShutdowns,30000);
+function shareWhatsApp(feeder, type, time, inst){
+ const msg =
+  "⚡ *POWER SHUTDOWN ALERT* ⚡\n\n" +
+  "🔌 *Feeder:* " + feeder + "\n" +
+  "📝 *Type:* " + type + "\n" +
+  "⏰ *Shutdown Time:* " + time + "\n" +
+  "🏭 *Installation:* " + inst + "\n\n" +
+  "— Area-IV Power Shutdown App";
+
+ const url = "https://wa.me/?text=" + encodeURIComponent(msg);
+ window.open(url, "_blank");
+}
+function shareResumeWhatsApp(){
+ if(!LAST_RESUME_DATA){
+  showMsg("No Resume Data Found");
+  return;
+ }
+
+ const d = LAST_RESUME_DATA;
+
+ const msg =
+  "✅ *POWER RESUME UPDATE* ✅\n\n" +
+  "🔌 *Feeder:* " + d.feeder + "\n" +
+  "⏰ *Resume Time:* " + d.resumeTime + "\n" +
+  "⚙️ *DG Deployed:* " + d.dg + "\n" +
+  "📝 *Reason:* " + d.reason + "\n" +
+  "👤 *Updated By:* " + d.user + "\n" +
+  "🏭 *Installation:* " + d.inst + "\n\n" +
+  "— Area-IV Power Shutdown App";
+
+ window.open(
+  "https://wa.me/?text=" + encodeURIComponent(msg),
+  "_blank"
+ );
+}
+// 🚫 Live blocking of special characters
+document.querySelectorAll("textarea, input[type=text]").forEach(el=>{
+ el.addEventListener("input",()=>{
+  el.value = el.value.replace(/[^a-zA-Z0-9 \-/]/g,"");
+ });
+});
+function openPlanShutdown(){
+ window.open("plan_shutdown.html","_blank","width=420,height=750");
+}
+</script>
+</body>
+</html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+<title>PLAN SHUTDOWN ENTRY</title>
+<style>
+body{font-family:Segoe UI;background:#f1f3f6;margin:0}
+.container{padding:16px;max-width:420px;margin:auto}
+input,select,button{
+ width:100%;padding:12px;margin-top:10px;
+ border-radius:10px;border:1px solid #ccc
+}
+button{background:#e74c3c;color:#fff;font-weight:700}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h3>📅 PLAN SHUTDOWN (ADMIN)</h3>
+
+<select id="inst">
+<option>LIMBODARA-GGS-1</option>
+<option>LIMBODARA-GGS-2</option>
+<option>GAMIJ-GGS-1</option>
+<option>GAMIJ-GGS-2</option>
+<option>GAMIJ-GGS-3</option>
+<option>MOTERA-GGS</option>
+</select>
+
+<input id="feeder" placeholder="Feeder Name">
+<input type="date" id="date">
+<input type="time" id="from">
+<input type="time" id="to">
+
+<button onclick="save()">Save Plan Shutdown</button>
+</div>
+
+<script>
+const WEBAPP_URL="PASTE_YOUR_DEPLOYED_WEBAPP_URLhttps://script.google.com/macros/s/AKfycbxe6yV6nVEHPMw2KjpIhTEe6r4RGlA_mNPAOMoUWRltNvKNTBjNSpw7XRGQNdjAjGF8fg/exec";
+
+function save(){
+ fetch(WEBAPP_URL+"?"+new URLSearchParams({
+  action:"planshutdown",
+  installation:inst.value,
+  feeder:feeder.value.toUpperCase(),
+  date:date.value,
+  from:from.value,
+  to:to.value,
+  entryBy:"ADMIN"
+ }),{mode:"no-cors"});
+
+ alert("Plan Shutdown Saved");
+}
+</script>
+</body>
+</html>
